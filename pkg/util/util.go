@@ -35,6 +35,7 @@ import (
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	operv1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/robfig/cron/v3"
 	cephv1 "github.com/rook/rook/pkg/apis/ceph.rook.io/v1"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -100,6 +101,7 @@ var (
 	log        = logrus.WithContext(ctx)
 	lazyConfig *rest.Config
 	lazyClient client.Client
+	lazyCron   *cron.Cron
 
 	// InsecureHTTPTransport is a global insecure http transport
 	InsecureHTTPTransport = &http.Transport{
@@ -216,6 +218,13 @@ func KubeClient() client.Client {
 		}
 	}
 	return lazyClient
+}
+
+func CronClient() *cron.Cron {
+	if lazyCron == nil {
+		lazyCron = cron.New()
+	}
+	return lazyCron
 }
 
 // KubeObject loads a text yaml/json to a kubernetes object.

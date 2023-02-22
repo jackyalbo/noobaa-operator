@@ -52,7 +52,6 @@ func (r *Reconciler) ReconcilePhaseCreating() error {
 	if err := r.ReconcileCAInject(); err != nil {
 		return err
 	}
-
 	if err := r.ReconcileObject(r.ServiceAccount, r.SetDesiredServiceAccount); err != nil {
 		return err
 	}
@@ -818,6 +817,7 @@ func (r *Reconciler) ReconcileRootSecret() error {
 		r.setKMSConditionStatus(nbv1.ConditionKMSInvalid)
 		return err
 	}
+	r.Kms = k
 	r.setKMSConditionType(k.Type)
 
 	v, err := k.Get()

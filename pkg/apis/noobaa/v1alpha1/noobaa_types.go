@@ -208,6 +208,9 @@ type SecuritySpec struct {
 
 // KeyManagementServiceSpec represent various details of the KMS server
 type KeyManagementServiceSpec struct {
+	EnableKeyRotation bool `json:"enableKeyRotation"`
+	// +optional
+	Schedule          string            `json:"schedule,omitempty"`
 	ConnectionDetails map[string]string `json:"connectionDetails,omitempty"`
 	TokenSecretName   string            `json:"tokenSecretName,omitempty"`
 }
@@ -281,6 +284,10 @@ type NooBaaStatus struct {
 	// Readme is a user readable string with explanations on the system
 	// +optional
 	Readme string `json:"readme,omitempty"`
+
+	// LastKeyRotateTime is the time system ran an encryption key rotate
+	// +optional
+	LastKeyRotateTime metav1.Time `json:"lastKeyRotateTime,omitempty"`
 }
 
 // SystemPhase is a string enum type for system phases

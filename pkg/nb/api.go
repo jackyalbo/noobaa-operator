@@ -63,6 +63,7 @@ type Client interface {
 
 	GenerateAccountKeysAPI(GenerateAccountKeysParams) error
 	ResetPasswordAPI(ResetPasswordParams) error
+	RotateRootKeyAPI(RotateRootKeyParams) error
 }
 
 // ReadAuthAPI calls auth_api.read_auth()
@@ -422,5 +423,11 @@ func (c *RPCClient) GenerateAccountKeysAPI(params GenerateAccountKeysParams) err
 // ResetPasswordAPI calls account_api.reset_password()
 func (c *RPCClient) ResetPasswordAPI(params ResetPasswordParams) error {
 	req := &RPCMessage{API: "account_api", Method: "reset_password", Params: params}
+	return c.Call(req, nil)
+}
+
+// RotateRootKeyAPI calls system_api.rotate_root_key()
+func (c *RPCClient) RotateRootKeyAPI(params RotateRootKeyParams) error {
+	req := &RPCMessage{API: "system_api", Method: "rotate_root_key", Params: params}
 	return c.Call(req, nil)
 }

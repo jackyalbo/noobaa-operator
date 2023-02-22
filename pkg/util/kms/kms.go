@@ -11,7 +11,7 @@ import (
 /////////// KMS provides uniform access to several backend types ///////////
 ////////////////////////////////////////////////////////////////////////////
 const (
-	Provider             = "KMS_PROVIDER" // backend type configuration key
+	Provider = "KMS_PROVIDER" // backend type configuration key
 )
 
 // SingleSecret represents a single secret
@@ -29,11 +29,11 @@ type SingleSecret interface {
 
 // Driver is a backend type specific driver interface for libopenstorage/secrets framework
 type Driver interface {
-	Path()          string
-	Name()          string
-	Config(connectionDetails map[string]string, tokenSecretName, namespace string)  (map[string]interface{}, error)
-	GetContext()    map[string]string
-	SetContext()    map[string]string
+	Path() string
+	Name() string
+	Config(connectionDetails map[string]string, tokenSecretName, namespace string) (map[string]interface{}, error)
+	GetContext() map[string]string
+	SetContext() map[string]string
 	DeleteContext() map[string]string
 }
 
@@ -42,7 +42,7 @@ type DriverCtor func(
 	name string,
 	namespace string,
 	uid string,
-) (Driver)
+) Driver
 
 // kmsDrivers is a map of all registered drivers
 var kmsDrivers = make(map[string]DriverCtor)
@@ -63,7 +63,7 @@ func NewDriver(
 	name string,
 	namespace string,
 	uid string,
-) (Driver) {
+) Driver {
 	if dCtor, exists := kmsDrivers[dType]; exists {
 		return dCtor(name, namespace, uid)
 	}
@@ -73,9 +73,9 @@ func NewDriver(
 // KMS implements SingleSecret interface using backend implementation of
 // secrets.Secrets interface and using backend type specific driver
 type KMS struct {
-	secrets.Secrets   // secrets interface
-	Type   string     // backend system type, k8s, vault & ibm are supported
-	driver Driver     // backend type specific driver
+	secrets.Secrets        // secrets interface
+	Type            string // backend system type, k8s, vault & ibm are supported
+	driver          Driver // backend type specific driver
 }
 
 // NewKMS creates a new secret KMS client
@@ -118,18 +118,62 @@ func (k *KMS) Get() (string, error) {
 	return s[k.driver.Name()].(string), nil
 }
 
+// Get 2nd secret value in KMS
+func (k *KMS) Get2ndKey() (string, error) {
+	s, err := k.GetSecret(k.driver.Path(), k.driver.GetContext())
+	if err != nil {
+		// handle k8s get from non-existent secret
+		if strings.Contains(err.Error(), "not found") {
+			return "", secrets.ErrInvalidSecretId
+		}
+		return "", err
+	}
+	if key, ok := s[k.driver.Name()+"_k2"]; ok {
+		return key.(string), nil
+	}
+	return "", nil
+}
+
 // Set secret value in KMS
 func (k *KMS) Set(v string) error {
-	data := map[string]interface{} {
+	data := map[string]interface{}{
 		k.driver.Name(): v,
 	}
 
 	return k.PutSecret(k.driver.Path(), data, k.driver.SetContext())
 }
 
+// Add 2nd secret value in KMS
+func (k *KMS) Set2ndKey(value string) error {
+	data, err := k.GetSecret(k.driver.Path(), k.driver.GetContext())
+	if err != nil {
+		// handle k8s get from non-existent secret
+		if strings.Contains(err.Error(), "not found") {
+			return secrets.ErrInvalidSecretId
+		}
+		return err
+	}
+	data[k.driver.Name()+"_k2"] = value
+	return k.PutSecret(k.driver.Path(), data, k.driver.SetContext())
+}
+
 // Delete secret value from KMS
 func (k *KMS) Delete() error {
 	return k.DeleteSecret(k.driver.Path(), k.driver.DeleteContext())
+}
+
+// Delete 2nd secret value in KMS
+func (k *KMS) Remove2ndKey() error {
+	data, err := k.GetSecret(k.driver.Path(), k.driver.GetContext())
+	if err != nil {
+		// handle k8s get from non-existent secret
+		if strings.Contains(err.Error(), "not found") {
+			return secrets.ErrInvalidSecretId
+		}
+		return err
+	}
+	data[k.driver.Name()+"_k2"] = ""
+	return k.PutSecret(k.driver.Path(), data, k.driver.SetContext())
 }
 
 // kmsType returns the secret backend type

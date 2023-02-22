@@ -67,6 +67,7 @@ type Reconciler struct {
 	OAuthEndpoints        *util.OAuth2Endpoints
 	MongoConnectionString string
 	ApplyCAsToPods        string
+	Kms                   *kms.KMS
 
 	NooBaa                    *nbv1.NooBaa
 	ServiceAccount            *corev1.ServiceAccount

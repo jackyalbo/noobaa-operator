@@ -421,6 +421,10 @@ type ResetPasswordParams struct {
 	Password             MaskedString `json:"password"`
 }
 
+type RotateRootKeyParams struct {
+	NewRootKey string `json:"new_root_key"`
+}
+
 // BackingStoreInfo describes backingstore info
 type BackingStoreInfo struct {
 	// Name describes backingstore name

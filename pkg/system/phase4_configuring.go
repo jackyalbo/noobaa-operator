@@ -24,6 +24,7 @@ import (
 	"github.com/noobaa/noobaa-operator/v5/pkg/options"
 	"github.com/noobaa/noobaa-operator/v5/pkg/util"
 	secv1 "github.com/openshift/api/security/v1"
+	"github.com/robfig/cron/v3"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/sirupsen/logrus"
@@ -94,6 +95,9 @@ func (r *Reconciler) ReconcilePhaseConfiguring() error {
 		return err
 	}
 	if err := r.ReconcileDeploymentEndpointStatus(); err != nil {
+		return err
+	}
+	if err := r.ReconcileKeyRotation(); err != nil {
 		return err
 	}
 
@@ -1547,6 +1551,97 @@ func (r *Reconciler) ReconcileNamespaceStores(namespaceResources []nb.NamespaceR
 				logrus.Infof("couldn't update namespace store info for namespace resource %q in namespace %q", nsr.Name, options.Namespace)
 			}
 		}
+	}
+	return nil
+}
+
+// ReconcileKeyRotation checks if key rotation is enabled
+// if so creates a cron job to run every time set
+func (r *Reconciler) ReconcileKeyRotation() error {
+	keyManagementServiceSpec := r.NooBaa.Spec.Security.KeyManagementService
+	// cronClient := util.CronClient()
+	// entries := cronClient.Entries()
+	// if !keyManagementServiceSpec.EnableKeyRotation {
+	// 	r.Logger.Infof("Root key rotate is disabled - skipping %v", keyManagementServiceSpec)
+	// 	if len(entries) > 0 {
+	// 		cronClient.Stop()
+	// 		cronClient.Remove(entries[0].ID)
+	// 	}
+	// 	return nil
+	// }
+	schedule, err := cron.ParseStandard(keyManagementServiceSpec.Schedule)
+	if err != nil {
+		r.Logger.Errorf("got error when trying to parse key rotation schedule. %v", err)
+		return err
+	}
+	nextSchedule := schedule.Next(r.NooBaa.Status.LastKeyRotateTime.Time)
+	r.Logger.Infof("Next Last Key Rotate time: %v", nextSchedule)
+	if nextSchedule.After(time.Now()) {
+		return nil
+	}
+	err = r.keyRotate()
+	if err != nil {
+		r.Logger.Errorf("got error when rotate the key. %v", err)
+		return err
+	}
+	r.Logger.Infof("Updating Last Key Rotate time: %v", time.Now())
+	r.NooBaa.Status.LastKeyRotateTime = metav1.Time{Time: time.Now()}
+
+	// if len(entries) == 0 {
+	// 	r.Logger.Infof("Adding new root encryption key schedule %v", schedule)
+	// 	cronClient.AddFunc(keyManagementServiceSpec.Schedule, r.keyRotate)
+	// 	r.Logger.Infof("Entries: %v", cronClient.Entries())
+	// 	cronClient.Start()
+	// } else {
+	// 	if !reflect.DeepEqual(schedule, entries[0].Schedule) {
+	// 		r.Logger.Infof("Updating root encryption key schedule was: %v now: %v", entries[0].Schedule, schedule)
+	// 		cronClient.Stop()
+	// 		cronClient.Remove(entries[0].ID)
+	// 		cronClient.AddFunc(keyManagementServiceSpec.Schedule, r.keyRotate)
+	// 		cronClient.Start()
+	// 	}
+	// 	r.Logger.Infof("Updating Last Key Rotate time: %v", entries[0].Prev)
+	// 	r.NooBaa.Status.LastKeyRotateTime = metav1.Time{Time: entries[0].Prev}
+	// }
+	return nil
+}
+
+func (r *Reconciler) keyRotate() error {
+	r.Logger.Infof("Key rotation started at %v", time.Now())
+	new_key, err := r.Kms.Get2ndKey()
+	if err != nil {
+		r.Logger.Errorf("ReconcileKeyRotation: KMS Get 2nd key error %v", err)
+		return err
+	}
+	if new_key == "" {
+		new_key = util.RandomBase64(32)
+		err := r.Kms.Set2ndKey(new_key)
+		if err != nil {
+			r.Logger.Errorf("ReconcileKeyRotation: KMS Set 2nd key error %v", err)
+			r.setKMSConditionStatus(nbv1.ConditionKMSErrorWrite)
+		}
+	}
+	// TODO: What happens if core rotated root key but doesn't return success (NETWORK issue?)
+	err = r.NBClient.RotateRootKeyAPI(nb.RotateRootKeyParams{
+		NewRootKey: new_key,
+		// OldRootKey: r.SecretRootMasterKey,
+	})
+	if err != nil {
+		r.Logger.Errorf("ReconcileKeyRotation: RPC call error %v", err)
+		return err
+	}
+	// TODO: What happens if KMS fail to update new root? reverting? what happens if reverting failes?
+	err = r.Kms.Set(new_key)
+	if err != nil {
+		r.Logger.Errorf("ReconcileKeyRotation: KMS Set Main key error %v", err)
+		r.setKMSConditionStatus(nbv1.ConditionKMSErrorWrite)
+		return err
+	}
+	err = r.Kms.Remove2ndKey()
+	if err != nil {
+		r.Logger.Errorf("ReconcileKeyRotation: KMS Remove 2nd key error %v", err)
+		r.setKMSConditionStatus(nbv1.ConditionKMSErrorWrite)
+		return err
 	}
 	return nil
 }
