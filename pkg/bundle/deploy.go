@@ -5307,7 +5307,7 @@ spec:
   sourceNamespace: default
 `
 
-const Sha256_deploy_operator_yaml = "7c4a0b3f43fcf06a10db4dfc4fa3a4f4e1a26be35cb890e64007405ec7129dec"
+const Sha256_deploy_operator_yaml = "dcf46568668033f1b5f814402cf80e68c8ca07dc438c5f66ff5ccfe19f113c40"
 
 const File_deploy_operator_yaml = `apiVersion: apps/v1
 kind: Deployment
@@ -5337,12 +5337,21 @@ spec:
               path: oidc-token
               expirationSeconds: 3600
               audience: api
+      - name: noobaa-ca-inject
+        configMap:
+          name: noobaa-ca-inject
+          items:
+          - key: ca-bundle.crt
+            path: tls-ca-bundle.pem
+          optional: true
       containers:
         - name: noobaa-operator
           image: NOOBAA_OPERATOR_IMAGE
           volumeMounts:
           - mountPath: /var/run/secrets/openshift/serviceaccount
             name: oidc-token
+          - mountPath: /etc/pki/ca-trust/extracted/pem
+            name: noobaa-ca-inject
           resources:
             limits:
               cpu: "250m"
