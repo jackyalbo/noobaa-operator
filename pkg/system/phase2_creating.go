@@ -1556,6 +1556,7 @@ func (r *Reconciler) HasUpgradeDbContainerFailed(dbPod *corev1.Pod) string {
 			}
 		}
 	}
+	r.Logger.Infof("HasUpgradeDbContainerFailed: upgrade-db containers: %v", dbPod.Status.InitContainerStatuses)
 	return "NotFound"
 }
 
