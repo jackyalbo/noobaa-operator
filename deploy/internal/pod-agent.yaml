@@ -47,6 +47,7 @@ spec:
     runAsGroup: 0
     fsGroup: 0
     fsGroupChangePolicy: "OnRootMismatch"
+  serviceAccountName: noobaa-core
   volumes:
     - name: tmp-logs-vol
       emptyDir: {}

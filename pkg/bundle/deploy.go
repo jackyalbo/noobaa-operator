@@ -4717,7 +4717,7 @@ spec:
       storage: 30Gi
 `
 
-const Sha256_deploy_internal_pod_agent_yaml = "74237f435120c893cd8e349e9ac685dd1c884e121c018f46e48228f845a51093"
+const Sha256_deploy_internal_pod_agent_yaml = "b03e85634ced2a4b62007d4cf98b164bb1c8b9aa57e7bbcd11c8116c26c4769b"
 
 const File_deploy_internal_pod_agent_yaml = `apiVersion: v1
 kind: Pod
@@ -4768,6 +4768,7 @@ spec:
     runAsGroup: 0
     fsGroup: 0
     fsGroupChangePolicy: "OnRootMismatch"
+  serviceAccountName: noobaa-core
   volumes:
     - name: tmp-logs-vol
       emptyDir: {}
